@@ -514,5 +514,79 @@ function deleteUser($params, $queryParams) {
         ]);
     }
 }
+// Assuming you have an API router or entry point
+function handleStoreBearerTokenRequest() {
+    // Check if the request method is POST
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        http_response_code(405); // Method Not Allowed
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Method Not Allowed. Please use POST method.'
+        ]);
+        return;
+    }
+
+    // Get the raw POST data
+    $inputData = json_decode(file_get_contents("php://input"), true);
+
+    // Validate the input (user_id is required)
+    if (isset($inputData['user_id'])) {
+        $user_id = $inputData['user_id'];
+
+        // Call the function to store the Bearer token
+        $response = storeBearerToken($user_id);
+
+        // Return the response (Token generated successfully)
+        echo json_encode($response);
+    } else {
+        // Invalid request if user_id is missing
+        http_response_code(400); // Bad Request
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'User ID is required.'
+        ]);
+    }
+}
+
+// Function to store the Bearer token in the database
+function storeBearerToken($user_id) {
+    // Generate a Bearer token
+    $token = bin2hex(random_bytes(32)); // 64-character token
+
+    // Set the expiration time for the token (e.g., 1 hour)
+    date_default_timezone_set('Asia/Karachi');
+
+    $expiresAt = date('Y-m-d H:i:s', strtotime('+1 hour'));
+
+    // Store the token in the database
+    try {
+        $db = new Db();
+        $conn = $db->getConnection();
+
+        $stmt = $conn->prepare("INSERT INTO tokens (user_id, token, expires_at) VALUES (:user_id, :token, :expires_at)");
+        $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+        $stmt->bindParam(':token', $token, PDO::PARAM_STR);
+        $stmt->bindParam(':expires_at', $expiresAt, PDO::PARAM_STR);
+
+        $stmt->execute();
+
+        // Return the token response
+        return [
+            'status' => 'success',
+            'message' => 'Token generated successfully!',
+            'token' => $token, // Returning the generated token
+            'expires_at' => $expiresAt
+        ];
+    } catch (PDOException $e) {
+        // Handle the database error
+        return [
+            'status' => 'error',
+            'message' => 'Database error: ' . $e->getMessage()
+        ];
+    }
+}
+
+// Call the API handler to process the request
+
 
 ?>

@@ -9,6 +9,7 @@ $router->get('/users/getAllUser/', 'getAllUsers');   // Read
 $router->post('/users/createUser/', 'createUser');   // Create
 $router->put('/users/updateUser/', 'updateUser');   // Update (using POST for simplicity)
 $router->delete('/users/deleteUser/', 'deleteUser');   // Delete (using POST for simplicity)
+$router->post('/user/getToken/','handleStoreBearerTokenRequest'); //token generate api 
 
 // Dispatch the request
 

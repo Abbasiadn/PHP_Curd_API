@@ -1,5 +1,5 @@
 <?php
-
+require_once 'db.php';
 class Router {
     private $routes = [];
 
@@ -8,6 +8,7 @@ class Router {
     }
 
     public function post($route, $callback) {
+      
         $this->addRoute('POST', $route, $callback);
     }
      // Add PUT method
@@ -79,6 +80,12 @@ class Router {
 
         if ($method === $route['method'] && $match) {
             array_shift($params); // Remove the full match
+             if(($uri ==='user/getToken') ===false ){
+
+             
+            
+             $this->validateBearerToken();
+             }
             return call_user_func_array($route['callback'], [$params, $this->getQueryParams()]);
         }
     }
@@ -101,4 +108,48 @@ class Router {
         parse_str($_SERVER['QUERY_STRING'] ?? '', $queryParams);
         return $queryParams;
     }
+
+    private function validateBearerToken() {
+        // Get the Authorization header
+        $headers = getallheaders();
+        if (!isset($headers['Authorization'])) {
+            http_response_code(401);  // Unauthorized
+            echo json_encode(['status' => 'error', 'message' => 'Authorization header missing']);
+            exit;
+        }
+    
+        // Extract the token from the header
+        $authHeader = $headers['Authorization'];
+        if (strpos($authHeader, 'Bearer ') !== 0) {
+            http_response_code(401);  // Unauthorized
+            echo json_encode(['status' => 'error', 'message' => 'Invalid token format']);
+            exit;
+        }
+    
+        $token = substr($authHeader, 7); // Remove "Bearer " prefix
+    
+        // Validate the token in the database
+        $db = new Db();
+        $conn = $db->getConnection();
+    
+        // Check if the token exists and is not expired
+        $stmt = $conn->prepare("SELECT * FROM tokens WHERE token = :token AND expires_at > NOW()");
+        $stmt->bindParam(':token', $token, PDO::PARAM_STR);
+        $stmt->execute();
+      
+        if ($stmt && $stmt->rowCount() === 0) {
+            // Token is either invalid or expired, delete it from the database
+            $stmtDelete = $conn->prepare("DELETE FROM tokens WHERE token = :token");
+            $stmtDelete->bindParam(':token', $token, PDO::PARAM_STR);
+            $stmtDelete->execute();
+    
+            http_response_code(401);  // Unauthorized
+            echo json_encode(['status' => 'error', 'message' => 'Invalid or expired token']);
+            exit;
+        }
+    
+        // Token is valid, return the user information or proceed with the request
+        return true;
+    }
+    
 }
